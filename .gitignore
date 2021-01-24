@@ -5,6 +5,9 @@
 *.so
 *.dylib
 
+deploy/certs/*.pem
+deploy/certs/*.csr
+
 # Test binary, built with `go test -c`
 *.test
 
