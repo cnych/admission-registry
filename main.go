@@ -44,7 +44,7 @@ func main() {
 	// 定义 http server handler
 	mux := http.NewServeMux()
 	mux.HandleFunc("/validate", whsrv.Handler)
-	mux.HandleFunc("/mutate", whsrv.Handler)  // todo
+	mux.HandleFunc("/mutate", whsrv.Handler)
 	whsrv.Server.Handler = mux
 
 	// 在一个新的 goroutine 里面去启动 webhook server

@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deploy2
+  annotations:
+    io.ydzs.admission-registry/mutate: "no"
+spec:
+  selector:
+    matchLabels:
+      app: test2-mutate
+  template:
+    metadata:
+      labels:
+        app: test2-mutate
+    spec:
+      containers:
+        - name: mutate
+          image: docker.io/nginx:1.7.9
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80

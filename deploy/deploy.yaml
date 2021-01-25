@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: whitelist
-          image: cnych/admission-registry:v0.1.1
+          image: cnych/admission-registry:v0.1.4
           imagePullPolicy: IfNotPresent
           env:
             - name: WHITELIST_REGISTRIES
