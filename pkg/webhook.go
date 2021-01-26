@@ -18,8 +18,8 @@ import (
 
 var (
 	runtimeScheme = runtime.NewScheme()
-	codeFactory = serializer.NewCodecFactory(runtimeScheme)
-	deserializer = codeFactory.UniversalDeserializer()
+	codeFactory   = serializer.NewCodecFactory(runtimeScheme)
+	deserializer  = codeFactory.UniversalDeserializer()
 )
 
 const (
@@ -28,23 +28,23 @@ const (
 )
 
 type WhSvrParam struct {
-	Port int
+	Port     int
 	CertFile string
-	KeyFile string
+	KeyFile  string
 }
 
 type patchOperation struct {
-	Op string `json:"op"`
-	Path string `json:"path"`
+	Op    string      `json:"op"`
+	Path  string      `json:"path"`
 	Value interface{} `json:"value,omitempty"`
 }
 
 type WebhookServer struct {
-	Server *http.Server   // http server
-	WhiteListRegistries []string  // 白名单的镜像仓库列表
+	Server              *http.Server // http server
+	WhiteListRegistries []string     // 白名单的镜像仓库列表
 }
 
-func (s *WebhookServer) Handler(writer http.ResponseWriter, request *http.Request)  {
+func (s *WebhookServer) Handler(writer http.ResponseWriter, request *http.Request) {
 	var body []byte
 	if request.Body != nil {
 		if data, err := ioutil.ReadAll(request.Body); err == nil {
@@ -72,7 +72,7 @@ func (s *WebhookServer) Handler(writer http.ResponseWriter, request *http.Reques
 		klog.Errorf("Can't decode body: %v", err)
 		admissionResponse = &admissionv1.AdmissionResponse{
 			Result: &metav1.Status{
-				Code: http.StatusInternalServerError,
+				Code:    http.StatusInternalServerError,
 				Message: err.Error(),
 			},
 		}
@@ -118,7 +118,7 @@ func (s *WebhookServer) validate(ar *admissionv1.AdmissionReview) *admissionv1.A
 	req := ar.Request
 	var (
 		allowed = true
-		code = http.StatusOK
+		code    = http.StatusOK
 		message = ""
 	)
 
@@ -133,7 +133,7 @@ func (s *WebhookServer) validate(ar *admissionv1.AdmissionReview) *admissionv1.A
 		return &admissionv1.AdmissionResponse{
 			Allowed: allowed,
 			Result: &metav1.Status{
-				Code: int32(code),
+				Code:    int32(code),
 				Message: err.Error(),
 			},
 		}
@@ -158,7 +158,7 @@ func (s *WebhookServer) validate(ar *admissionv1.AdmissionReview) *admissionv1.A
 	return &admissionv1.AdmissionResponse{
 		Allowed: allowed,
 		Result: &metav1.Status{
-			Code: int32(code),
+			Code:    int32(code),
 			Message: message,
 		},
 	}
@@ -182,7 +182,7 @@ func (s *WebhookServer) mutate(ar *admissionv1.AdmissionReview) *admissionv1.Adm
 			klog.Errorf("Can't not unmarshal raw object: %v", err)
 			return &admissionv1.AdmissionResponse{
 				Result: &metav1.Status{
-					Code: http.StatusBadRequest,
+					Code:    http.StatusBadRequest,
 					Message: err.Error(),
 				},
 			}
@@ -195,7 +195,7 @@ func (s *WebhookServer) mutate(ar *admissionv1.AdmissionReview) *admissionv1.Adm
 			klog.Errorf("Can't not unmarshal raw object: %v", err)
 			return &admissionv1.AdmissionResponse{
 				Result: &metav1.Status{
-					Code: http.StatusBadRequest,
+					Code:    http.StatusBadRequest,
 					Message: err.Error(),
 				},
 			}
@@ -204,7 +204,7 @@ func (s *WebhookServer) mutate(ar *admissionv1.AdmissionReview) *admissionv1.Adm
 	default:
 		return &admissionv1.AdmissionResponse{
 			Result: &metav1.Status{
-				Code: http.StatusBadRequest,
+				Code:    http.StatusBadRequest,
 				Message: fmt.Sprintf("Can't handle the kind(%s) object", req.Kind.Kind),
 			},
 		}
@@ -231,7 +231,7 @@ func (s *WebhookServer) mutate(ar *admissionv1.AdmissionReview) *admissionv1.Adm
 		klog.Errorf("patch marshal error: %v", err)
 		return &admissionv1.AdmissionResponse{
 			Result: &metav1.Status{
-				Code: http.StatusBadRequest,
+				Code:    http.StatusBadRequest,
 				Message: err.Error(),
 			},
 		}
@@ -239,7 +239,7 @@ func (s *WebhookServer) mutate(ar *admissionv1.AdmissionReview) *admissionv1.Adm
 
 	return &admissionv1.AdmissionResponse{
 		Allowed: true,
-		Patch: patchBytes,
+		Patch:   patchBytes,
 		PatchType: func() *admissionv1.PatchType {
 			pt := admissionv1.PatchTypeJSONPatch
 			return &pt
@@ -277,7 +277,7 @@ func mutateAnnotations(target map[string]string, added map[string]string) (patch
 		if target == nil || target[key] == "" {
 			target = map[string]string{}
 			patch = append(patch, patchOperation{
-				Op: "add",
+				Op:   "add",
 				Path: "/metadata/annotations",
 				Value: map[string]string{
 					key: value,
@@ -285,8 +285,8 @@ func mutateAnnotations(target map[string]string, added map[string]string) (patch
 			})
 		} else {
 			patch = append(patch, patchOperation{
-				Op: "replace",
-				Path: "/metadata/annotations/" + key,
+				Op:    "replace",
+				Path:  "/metadata/annotations/" + key,
 				Value: value,
 			})
 		}

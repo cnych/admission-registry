@@ -59,7 +59,7 @@ func main() {
 	// 监听 OS 的关闭信号
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-	<- signalChan
+	<-signalChan
 
 	klog.Infof("Got OS shutdown signal, gracefully shutting down...")
 	if err := whsrv.Server.Shutdown(context.Background()); err != nil {
