@@ -12,44 +12,49 @@ import (
 	"os"
 	"time"
 
+	"github.com/cnych/admission-registry/pkg"
 	log "github.com/sirupsen/logrus"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 func main() {
 	var caPEM, serverCertPEM, serverPrivKeyPEM *bytes.Buffer
 	// CA config
+	subject := pkix.Name{
+		Country:            []string{"CN"},
+		Organization:       []string{"ydzs.io"},
+		OrganizationalUnit: []string{"ydzs.io"},
+		Province:           []string{"Beijing"},
+		Locality:           []string{"Beijing"},
+	}
 	ca := &x509.Certificate{
-		SerialNumber: big.NewInt(2021),
-		Subject: pkix.Name{
-			Organization: []string{"ydzs.io"},
-		},
-		NotBefore: time.Now(), // 有效期限
-		NotAfter:  time.Now().AddDate(10, 0, 0),
-		IsCA:      true,
-		// 扩展密钥用法的顺序
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		SerialNumber: big.NewInt(2021), // SerialNumber 是 CA 颁布的唯一序列号
+		Subject:      subject,
+		NotBefore:    time.Now(), // 有效期限
+		NotAfter:     time.Now().AddDate(10, 0, 0),
+		IsCA:         true, // 根证书
+		// 密钥扩展用途的序列(客户端认证和数据加密)
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		// KeyUsage 与 ExtKeyUsage 用来表明该证书是用来做服务器认证的
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
+		BasicConstraintsValid: true, // 基本的有效性约束
 	}
 
-	// CA private key
+	// 生成 CA 私钥
 	caPrivKey, err := rsa.GenerateKey(cryptorand.Reader, 4096)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	// Self signed CA certificate
+	// 创建自签名的 CA 证书（第二个和第三个参数相同，则证书是自签名的）
 	caBytes, err := x509.CreateCertificate(cryptorand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	// PEM encode CA cert
+	// 编码证书文件和私钥文件
 	caPEM = new(bytes.Buffer)
 	_ = pem.Encode(caPEM, &pem.Block{
 		Type:  "CERTIFICATE",
@@ -60,14 +65,12 @@ func main() {
 		"admission-registry.default", "admission-registry.default.svc"}
 	commonName := "admission-registry.default.svc"
 
-	// server cert config
+	// 服务端证书配置
+	subject.CommonName = commonName
 	cert := &x509.Certificate{
 		DNSNames:     dnsNames,
 		SerialNumber: big.NewInt(1658),
-		Subject: pkix.Name{
-			CommonName:   commonName,
-			Organization: []string{"ydzs.io"},
-		},
+		Subject:      subject,
 		NotBefore:    time.Now(),
 		NotAfter:     time.Now().AddDate(1, 0, 0),
 		SubjectKeyId: []byte{1, 2, 3, 4, 6},
@@ -75,19 +78,19 @@ func main() {
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 	}
 
-	// server private key
+	// 生成服务端的私钥
 	serverPrivKey, err := rsa.GenerateKey(cryptorand.Reader, 4096)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	// sign the server cert
+	// 对服务端私钥签名
 	serverCertBytes, err := x509.CreateCertificate(cryptorand.Reader, cert, ca, &serverPrivKey.PublicKey, caPrivKey)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	// PEM encode the server cert and key
+	// 编码服务端证书和私钥
 	serverCertPEM = new(bytes.Buffer)
 	_ = pem.Encode(serverCertPEM, &pem.Block{
 		Type:  "CERTIFICATE",
@@ -105,12 +108,12 @@ func main() {
 		log.Panic(err)
 	}
 
-	err = WriteFile("/etc/webhook/certs/tls.crt", serverCertPEM)
+	err = pkg.WriteFile("/etc/webhook/certs/tls.crt", serverCertPEM.Bytes())
 	if err != nil {
 		log.Panic(err)
 	}
 
-	err = WriteFile("/etc/webhook/certs/tls.key", serverPrivKeyPEM)
+	err = pkg.WriteFile("/etc/webhook/certs/tls.key", serverPrivKeyPEM.Bytes())
 	if err != nil {
 		log.Panic(err)
 	}
@@ -126,38 +129,6 @@ func main() {
 
 }
 
-// WriteFile writes data in the file at the given path
-func WriteFile(filepath string, sCert *bytes.Buffer) error {
-	f, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.Write(sCert.Bytes())
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func initKubeClient() (*kubernetes.Clientset, error) {
-	var (
-		err    error
-		config *rest.Config
-	)
-	if config, err = rest.InClusterConfig(); err != nil {
-		return nil, err
-	}
-
-	// 创建 Clientset 对象
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	return clientset, nil
-}
-
 func CreateAdmissionConfig(caCert *bytes.Buffer) error {
 	var (
 		webhookNamespace, _ = os.LookupEnv("WEBHOOK_NAMESPACE")
@@ -168,7 +139,7 @@ func CreateAdmissionConfig(caCert *bytes.Buffer) error {
 		mutationPath, _     = os.LookupEnv("MUTATE_PATH")
 	)
 
-	clientset, err := initKubeClient()
+	clientset, err := pkg.InitKubernetesCli()
 	if err != nil {
 		return err
 	}
