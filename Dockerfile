@@ -30,6 +30,5 @@ COPY --from=builder /workspace/admission-registry .
 ENTRYPOINT ["/admission-registry"]
 
 FROM alpine:3.9.2 as tls
-WORKDIR /
 COPY --from=builder /workspace/tls-manager .
 ENTRYPOINT ["/tls-manager"]

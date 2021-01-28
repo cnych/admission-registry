@@ -2,11 +2,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: admission-registry-sa
+
 ---
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: admission-registry-role
+  name: admission-registry-clusterrole
 rules:
 - verbs: ["*"]
   resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
@@ -16,15 +18,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: admission-registry-rolebinding
+  name: admission-registry-clusterrolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: admission-registry-role
+  name: admission-registry-clusterrole
 subjects:
-- kind: ServiceAccount
-  name: admission-registry-sa
-  namespace: default
+  - kind: ServiceAccount
+    name: admission-registry-sa
+    namespace: default
 
 ---
 apiVersion: apps/v1
@@ -44,25 +46,25 @@ spec:
     spec:
       serviceAccountName: admission-registry-sa
       initContainers:
-      - image: cnych/admission-registry-tls:v0.0.3
+      - name: webhook-init
+        image: cnych/admission-registry-tls:v0.0.4
         imagePullPolicy: IfNotPresent
-        name: webhook-init
         env:
         - name: WEBHOOK_NAMESPACE
           value: default
-        - name: MUTATE_CONFIG
-          value: admission-registry-mutate
-        - name: VALIDATE_CONFIG
-          value: admission-registry
         - name: WEBHOOK_SERVICE
+          value: admission-registry
+        - name: VALIDATE_CONFIG
           value: admission-registry
         - name: VALIDATE_PATH
           value: /validate
+        - name: MUTATE_CONFIG
+          value: admission-registry-mutate
         - name: MUTATE_PATH
           value: /mutate
         volumeMounts:
-          - mountPath: /etc/webhook/certs
-            name: webhook-certs
+        - name: webhook-certs
+          mountPath: /etc/webhook/certs
       containers:
       - name: webhook
         image: cnych/admission-registry:v0.1.4
@@ -77,8 +79,8 @@ spec:
           mountPath: /etc/webhook/certs
           readOnly: true
       volumes:
-        - name: webhook-certs
-          emptyDir: {}
+      - name: webhook-certs
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

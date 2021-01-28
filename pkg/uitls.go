@@ -7,18 +7,17 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// WriteFile writes data in the file at the given path
-func WriteFile(filepath string, bytes []byte) error {
-	f, err := os.Create(filepath)
+func WriteFile(filePath string, bts []byte) error {
+	f, err := os.Create(filePath)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	_, err = f.Write(bytes)
-	if err != nil {
+	if _, err := f.Write(bts); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -30,7 +29,8 @@ func InitKubernetesCli() (*kubernetes.Clientset, error) {
 	if config, err = rest.InClusterConfig(); err != nil {
 		return nil, err
 	}
-	// 创建 Clientset 对象
+
+	// 创建ClientSet 对象
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
